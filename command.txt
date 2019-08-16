@@ -1,0 +1,78 @@
+1.first fork the official repo LINK : https://github.com/deutAna/analysis
+
+2. open termenal in home Directory
+
+3. clone your fork using this command
+
+git clone https://github.com/<YOUR_USER_NAME>/analysis
+
+4. then type this command to go to the RejectPoint
+
+cd analysis
+
+your now in analysis Directory
+
+
+5. type this
+
+git remote -v
+
+you will see this :
+
+origin	https://github.com/<YOUR_USER_NAME>/analysis.git (fetch)
+origin	https://github.com/<YOUR_USER_NAME>/analysis.git (push)
+
+
+6. now if you wanna sync the repo from official link you have to do this steps
+
+
+git remote add upstream https://github.com/deutAna/analysis
+
+
+7. type git remote -v
+
+now you will see something like this
+
+
+
+origin	https://github.com/<YOUR_USER_NAME>/analysis.git (fetch)
+origin	https://github.com/<YOUR_USER_NAME>/analysis.git (push)
+upstream	https://github.com/deutAna/analysis.git (fetch)
+upstream	https://github.com/deutAna/analysis.git (push)
+
+
+
+finally to sync your repo ::
+
+2.1 with your fork just type :
+
+//to upload
+git push origin master
+//to download
+git fetch origin master
+
+
+2.2 with official repo :
+
+
+git fetch upstream master
+
+then :
+
+git merge upstream/master
+
+
+this tow lines above will sync your local repo with the official one.
+
+
+to upload the changes to your fork just push it as command in 2.1 step
+
+
+
+
+
+2.3 to merge your changes to the official repo from your fork just make a pull request
+
+
+
+thanks 
