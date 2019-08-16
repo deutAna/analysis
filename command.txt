@@ -6,7 +6,7 @@
 
 git clone https://github.com/<YOUR_USER_NAME>/analysis
 
-4. then type this command to go to the RejectPoint
+4. then type this command to go to the repo
 
 cd analysis
 
@@ -22,14 +22,24 @@ you will see this :
 origin	https://github.com/<YOUR_USER_NAME>/analysis.git (fetch)
 origin	https://github.com/<YOUR_USER_NAME>/analysis.git (push)
 
+6. plz at all you have to change your local config to make sure not the universit
+   account is respond :
 
-6. now if you wanna sync the repo from official link you have to do this steps
+   git config user.name Samah
+
+   git config user.email  <github email <YAhoo> >
+
+   git config user.github  <YOUR_USER_NAME>
+
+
+   
+7. now if you wanna sync the repo from official link you have to do this steps
 
 
 git remote add upstream https://github.com/deutAna/analysis
 
 
-7. type git remote -v
+8. type git remote -v
 
 now you will see something like this
 
@@ -75,4 +85,4 @@ to upload the changes to your fork just push it as command in 2.1 step
 
 
 
-thanks 
+thanks
