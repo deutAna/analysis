@@ -44,6 +44,8 @@ void FitProt(){
   TH3F* hTOFm2_DCAxy_p = (TH3F*)file->Get("Output_highMult_TOFpid")->FindObject(list)->FindObject(hist)->Clone("hTOFm2_DCAxy_p");
   hTOFm2_DCAxy_p->Sumw2();
 
+  hTOFm2_DCAxy_p->GetZaxis()->SetRangeUser(DCAlow,DCAhigh);
+
 
   hMCprim_DCAxy= (TH1F*) listMC->FindObject(listMCprim);
   hMCsecM_DCAxy= (TH1F*) listMC->FindObject(listMCsecM);
@@ -75,8 +77,9 @@ void FitProt(){
 
   // data
   hData_DCAxy = (TH1F*)hData_DCAxy_p->ProjectionY("_py",5,5,"oe")->Clone(Form("hData_DCAxy_ptbin_%i",9));
+hData_DCAxy->Draw();
 
-
+/*
   // try to rebin
   hData_DCAxy  ->Rebin(rebinFactor);
   hMCprim_DCAxy->Rebin(rebinFactor);
@@ -174,5 +177,5 @@ void FitProt(){
       cout << "purity = " << yieldPrim/(yieldPrim+yieldSecM+yieldSecW) << endl;
 
   }
-
+*/
 }
