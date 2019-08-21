@@ -23,7 +23,7 @@ const char* listMCprim = "DCAPtBinningPri";
 const char* listMCsecM = "DCAPtBinningMat";
 const char* listMCsecW = "DCAPtBinningSec";
 void WriteHistos(TH1F* purity);
-int count(TH1F* h);
+int countBins(TH1F* h);
 void plotFitterNoMat(int bin,TH1F* hData_DCAxy, TH1F* hMCprim_DCAxy, TH1F* hMCsecW_DCAxy,TH1F* mPurity);
 void FitProt(){
 
@@ -54,17 +54,15 @@ void FitProt(){
   TH3F* hTOFm2_DCAxy_p = (TH3F*)file->Get("Output_highMult_TOFpid")->FindObject(list)->FindObject(hist)->Clone("hTOFm2_DCAxy_p");
   hTOFm2_DCAxy_p->Sumw2();
 
-
+   //RebinY MCs 1:5 to make the total bins in rang 200 as DATA Histogram to fitting
 
   hMCprim_DCAxy_p= (TH2F*) listMC->FindObject(listMCprim);
-hMCprim_DCAxy_p->RebinY(5);
+  hMCprim_DCAxy_p->RebinY(5);
   hMCsecM_DCAxy_p= (TH2F*) listMC->FindObject(listMCsecM);
-hMCsecM_DCAxy_p->RebinY(5);
+  hMCsecM_DCAxy_p->RebinY(5);
   hMCsecW_DCAxy_p= (TH2F*) listMC->FindObject(listMCsecW);
-hMCsecW_DCAxy_p->RebinY(5);
-  //hMCsecM_DCAxy->Draw();
+  hMCsecW_DCAxy_p->RebinY(5);
 
-//hMCprim_DCAxy->Draw();
   // 2D histo
   TH2F* hData_DCAxy_p = (TH2F*)hTOFm2_DCAxy_p->Project3D("zxo")->Clone("hData_DCAxy_p");
 
@@ -77,9 +75,8 @@ hMCsecW_DCAxy_p->RebinY(5);
       mPurity->GetYaxis()->SetRange(0,100);
 
 for(int bin = 4;bin<=45;bin++){
-//  hData_DCAxy = (TH1F*)hData_DCAxy_p->ProjectionY("_py",bin,bin,"oe")->Clone(Form("hData_DCAxy_ptbin_%i",bin));
 
-  //hData_DCAxy->Draw();
+
   Double_t par0, errpar0, par1, errpar1, par2, errpar2;
   // yield of prim/secM/secW
   Double_t yieldPrim, yieldSecM, yieldSecW;
@@ -99,10 +96,10 @@ for(int bin = 4;bin<=45;bin++){
   // data
   hData_DCAxy = (TH1F*)hData_DCAxy_p->ProjectionY("_py",bin,bin,"oe")->Clone(Form("hData_DCAxy_ptbin_%i",bin));
 
-//MC
-hMCprim_DCAxy = (TH1F*)hMCprim_DCAxy_p->ProjectionY("_py",bin,bin,"oe")->Clone(Form("hMCprim_DCAxy_ptbin_%i",bin));
-hMCsecM_DCAxy = (TH1F*)hMCsecM_DCAxy_p->ProjectionY("_py",bin,bin,"oe")->Clone(Form("hMCsecM_DCAxy_ptbin_%i",bin));
-hMCsecW_DCAxy = (TH1F*)hMCsecW_DCAxy_p->ProjectionY("_py",bin,bin,"oe")->Clone(Form("hMCsecW_DCAxy_ptbin_%i",bin));
+  //MCs
+  hMCprim_DCAxy = (TH1F*)hMCprim_DCAxy_p->ProjectionY("_py",bin,bin,"oe")->Clone(Form("hMCprim_DCAxy_ptbin_%i",bin));
+  hMCsecM_DCAxy = (TH1F*)hMCsecM_DCAxy_p->ProjectionY("_py",bin,bin,"oe")->Clone(Form("hMCsecM_DCAxy_ptbin_%i",bin));
+  hMCsecW_DCAxy = (TH1F*)hMCsecW_DCAxy_p->ProjectionY("_py",bin,bin,"oe")->Clone(Form("hMCsecW_DCAxy_ptbin_%i",bin));
 
   // try to rebin
   hData_DCAxy->Rebin(rebinFactor);
@@ -111,19 +108,17 @@ hMCsecW_DCAxy = (TH1F*)hMCsecW_DCAxy_p->ProjectionY("_py",bin,bin,"oe")->Clone(F
   hMCsecW_DCAxy->Rebin(rebinFactor);
 
 
-  if(count(hMCsecM_DCAxy) == 0){
+  if(countBins(hMCsecM_DCAxy) == 0){
     plotFitterNoMat(bin,hData_DCAxy,hMCprim_DCAxy,hMCsecW_DCAxy,mPurity);
   }else{
 
-  TObjArray *mc = new TObjArray(3);        // MC histograms are put in this array
+
+  // MC histograms are put in this array
+  TObjArray *mc = new TObjArray(3);
   mc->Add(hMCprim_DCAxy);
   mc->Add(hMCsecM_DCAxy);
   mc->Add(hMCsecW_DCAxy);
   mc->ls();
-
-
-
-
 
       TFractionFitter* fit = new TFractionFitter(hData_DCAxy, mc); // initialise
       // constrain fractions
@@ -145,7 +140,7 @@ hMCsecW_DCAxy = (TH1F*)hMCsecW_DCAxy_p->ProjectionY("_py",bin,bin,"oe")->Clone(F
       Int_t status = fit->Fit();               // perform the fit
       cout << "fit status: " << status << endl;
       if (status != 0){
-
+         //some bins has no fitter
         continue;
       }
 
@@ -223,13 +218,14 @@ WriteHistos(mPurity);
 
 void plotFitterNoMat(int bin,TH1F* hData_DCAxy, TH1F* hMCprim_DCAxy, TH1F* hMCsecW_DCAxy,TH1F* mPurity){
 
-    //hData_DCAxy->Draw();
+
     Double_t par0, errpar0, par1, errpar1, par2, errpar2;
     // yield of prim/secM/secW
     Double_t yieldPrim, yieldSecM, yieldSecW;
     Double_t weightPrim, weightSecM, weightSecW;
     int binx_low  = 0;
     int binx_high = 0;
+
    TObjArray *mc = new TObjArray(2);        // MC histograms are put in this array
     mc->Add(hMCprim_DCAxy);
     mc->Add(hMCsecW_DCAxy);
@@ -324,7 +320,7 @@ double purity =yieldPrim/(yieldPrim+yieldSecW);
 
 
 }
-int count(TH1F* h){
+int countBins(TH1F* h){
   int M = 0;
   for(int z = 0;z<h->GetNbinsX();z++){
     double ax = h->GetBinContent(z);
@@ -339,7 +335,6 @@ void WriteHistos(TH1F* purity){
 
     TFile* fileout = new TFile(Form("%s_%s.root","Purity",part),"RECREATE");
     purity->SetStats(kFALSE);
-    //count(purity);
     purity->Draw("h");
     purity->Write();
     fileout->Close();
