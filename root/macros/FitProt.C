@@ -22,7 +22,9 @@ const char* hist = "fHistTOFmass2_DCAxy_p";
 const char* listMCprim = "DCAPtBinningPri";
 const char* listMCsecM = "DCAPtBinningMat";
 const char* listMCsecW = "DCAPtBinningSec";
-
+void WriteHistos(TH1F* purity);
+int count(TH1F* h);
+void plotFitterNoMat(int bin,TH1F* hData_DCAxy, TH1F* hMCprim_DCAxy, TH1F* hMCsecW_DCAxy,TH1F* mPurity);
 void FitProt(){
 
   TFile* file = new TFile(file);
@@ -32,9 +34,17 @@ void FitProt(){
   TList* t ; TList* listMC;
 
   //MC Histograms
+  TH2F* hMCprim_DCAxy_p;
+  TH2F* hMCsecM_DCAxy_p;
+  TH2F* hMCsecW_DCAxy_p;
+
   TH1F* hMCprim_DCAxy;
   TH1F* hMCsecM_DCAxy;
   TH1F* hMCsecW_DCAxy;
+
+  //output
+  TH1F* hData_DCAxy;
+  TH1F* hMCsum;
 
   fileMC->GetObject("ProtonTrkCutsMC",d);
   d->GetObject("ProtonTrkCutsMC",t);
@@ -44,21 +54,32 @@ void FitProt(){
   TH3F* hTOFm2_DCAxy_p = (TH3F*)file->Get("Output_highMult_TOFpid")->FindObject(list)->FindObject(hist)->Clone("hTOFm2_DCAxy_p");
   hTOFm2_DCAxy_p->Sumw2();
 
-  hTOFm2_DCAxy_p->GetZaxis()->SetRangeUser(DCAlow,DCAhigh);
 
 
-  hMCprim_DCAxy= (TH1F*) listMC->FindObject(listMCprim);
-  hMCsecM_DCAxy= (TH1F*) listMC->FindObject(listMCsecM);
-  hMCsecW_DCAxy= (TH1F*) listMC->FindObject(listMCsecW);
+  hMCprim_DCAxy_p= (TH2F*) listMC->FindObject(listMCprim);
+hMCprim_DCAxy_p->RebinY(5);
+  hMCsecM_DCAxy_p= (TH2F*) listMC->FindObject(listMCsecM);
+hMCsecM_DCAxy_p->RebinY(5);
+  hMCsecW_DCAxy_p= (TH2F*) listMC->FindObject(listMCsecW);
+hMCsecW_DCAxy_p->RebinY(5);
   //hMCsecM_DCAxy->Draw();
 
+//hMCprim_DCAxy->Draw();
   // 2D histo
   TH2F* hData_DCAxy_p = (TH2F*)hTOFm2_DCAxy_p->Project3D("zxo")->Clone("hData_DCAxy_p");
 
-  TH1F* hData_DCAxy;
-  TH1F* hMCsum;
 
 
+
+      TH1F* mPurity = new TH1F("hPurity",Form("Purity %s",list),45,0,4.5);
+      mPurity->GetXaxis()->SetTitle("#it{p}, GeV/#it{c}");
+      mPurity->GetYaxis()->SetTitle("purity");
+      mPurity->GetYaxis()->SetRange(0,100);
+
+for(int bin = 4;bin<=45;bin++){
+//  hData_DCAxy = (TH1F*)hData_DCAxy_p->ProjectionY("_py",bin,bin,"oe")->Clone(Form("hData_DCAxy_ptbin_%i",bin));
+
+  //hData_DCAxy->Draw();
   Double_t par0, errpar0, par1, errpar1, par2, errpar2;
   // yield of prim/secM/secW
   Double_t yieldPrim, yieldSecM, yieldSecW;
@@ -76,15 +97,23 @@ void FitProt(){
   int rebinFactor = 2;
 
   // data
-  hData_DCAxy = (TH1F*)hData_DCAxy_p->ProjectionY("_py",5,5,"oe")->Clone(Form("hData_DCAxy_ptbin_%i",9));
-hData_DCAxy->Draw();
+  hData_DCAxy = (TH1F*)hData_DCAxy_p->ProjectionY("_py",bin,bin,"oe")->Clone(Form("hData_DCAxy_ptbin_%i",bin));
 
-/*
+//MC
+hMCprim_DCAxy = (TH1F*)hMCprim_DCAxy_p->ProjectionY("_py",bin,bin,"oe")->Clone(Form("hMCprim_DCAxy_ptbin_%i",bin));
+hMCsecM_DCAxy = (TH1F*)hMCsecM_DCAxy_p->ProjectionY("_py",bin,bin,"oe")->Clone(Form("hMCsecM_DCAxy_ptbin_%i",bin));
+hMCsecW_DCAxy = (TH1F*)hMCsecW_DCAxy_p->ProjectionY("_py",bin,bin,"oe")->Clone(Form("hMCsecW_DCAxy_ptbin_%i",bin));
+
   // try to rebin
-  hData_DCAxy  ->Rebin(rebinFactor);
+  hData_DCAxy->Rebin(rebinFactor);
   hMCprim_DCAxy->Rebin(rebinFactor);
   hMCsecM_DCAxy->Rebin(rebinFactor);
   hMCsecW_DCAxy->Rebin(rebinFactor);
+
+
+  if(count(hMCsecM_DCAxy) == 0){
+    plotFitterNoMat(bin,hData_DCAxy,hMCprim_DCAxy,hMCsecW_DCAxy,mPurity);
+  }else{
 
   TObjArray *mc = new TObjArray(3);        // MC histograms are put in this array
   mc->Add(hMCprim_DCAxy);
@@ -93,89 +122,226 @@ hData_DCAxy->Draw();
   mc->ls();
 
 
-  TFractionFitter* fit = new TFractionFitter(hData_DCAxy, mc); // initialise
-  // constrain fractions
 
-  // protons
-  if (part == "prot"){
-      fit->Constrain(1,0.93,1.0);
-      fit->Constrain(2,0.0,0.01);
-      fit->Constrain(3,0.01,0.07);
+
+
+      TFractionFitter* fit = new TFractionFitter(hData_DCAxy, mc); // initialise
+      // constrain fractions
+
+      // protons
+      if (part == "prot"){
+          fit->Constrain(1,0.93,1.0);
+          fit->Constrain(2,0.0,0.01);
+          fit->Constrain(3,0.01,0.07);
+      }
+
+      // aprotons
+      if (part == "aprot"){
+          fit->Constrain(1,0.93,1.0);
+          fit->Constrain(2,0.0,0.01);
+          fit->Constrain(3,0.01,0.07);
+      }
+
+      Int_t status = fit->Fit();               // perform the fit
+      cout << "fit status: " << status << endl;
+      if (status != 0){
+
+        continue;
+      }
+
+      if (status == 0) {                       // check on fit status
+          TH1F* result = (TH1F*) fit->GetPlot();
+          // obtain weights
+          fit->GetResult(0, par0, errpar0);
+          fit->GetResult(1, par1, errpar1);
+          fit->GetResult(2, par2, errpar2);
+
+          cout << "par0 = " << par0 << endl;
+          cout << "par1 = " << par1 << endl;
+          cout << "par2 = " << par2 << endl;
+
+          hData_DCAxy->SetLineColor(kBlack);
+          hData_DCAxy->SetMarkerColor(kBlack);
+          hData_DCAxy->SetMarkerStyle(kFullCircle);
+          hData_DCAxy->Draw("Ep");
+
+          result->SetLineColor(kBlue);
+          result->Draw("same");
+
+          weightPrim = par0*(hData_DCAxy->Integral())/(hMCprim_DCAxy->Integral());
+          weightSecM = par1*(hData_DCAxy->Integral())/(hMCsecM_DCAxy->Integral());
+          weightSecW = par2*(hData_DCAxy->Integral())/(hMCsecW_DCAxy->Integral());
+
+          hMCprim_DCAxy->Scale(weightPrim);
+          hMCsecM_DCAxy->Scale(weightSecM);
+          hMCsecW_DCAxy->Scale(weightSecW);
+
+          hMCsum = (TH1F*)hMCprim_DCAxy->Clone();
+          hMCsum->Add(hMCsecM_DCAxy);
+          hMCsum->Add(hMCsecW_DCAxy);
+
+          hMCprim_DCAxy->SetLineColor(kRed);
+          hMCprim_DCAxy->SetMarkerColor(kRed);
+          hMCprim_DCAxy->SetMarkerStyle(kFullCircle);
+          hMCprim_DCAxy->Draw("same");
+
+          hMCsecM_DCAxy->SetLineColor(kGreen);
+          hMCsecM_DCAxy->SetMarkerColor(kGreen);
+          hMCsecM_DCAxy->SetMarkerStyle(kFullCircle);
+          hMCsecM_DCAxy->Draw("same");
+
+          hMCsecW_DCAxy->SetLineColor(kMagenta);
+          hMCsecW_DCAxy->SetMarkerColor(kMagenta);
+          hMCsecW_DCAxy->SetMarkerStyle(kFullCircle);
+          hMCsecW_DCAxy->Draw("same");
+
+          hMCsum->SetLineColor(kBlue+1);
+          hMCsum->SetMarkerColor(kBlue+1);
+          hMCsum->SetMarkerStyle(kFullStar);
+          hMCsum->Draw("same");
+
+          c1->Print(Form("DCAxyFit_%s_bin_%i.png",part,bin));
+
+          // extract purity
+          binx_low  = hData_DCAxy->FindBin(-0.1+0.0001);
+          binx_high = hData_DCAxy->FindBin(0.1-0.0001);
+
+          yieldPrim = hMCprim_DCAxy->Integral(binx_low,binx_high);
+          yieldSecM = hMCsecM_DCAxy->Integral(binx_low,binx_high);
+          yieldSecW = hMCsecW_DCAxy->Integral(binx_low,binx_high);
+
+          double purity =yieldPrim/(yieldPrim+yieldSecW);
+                  cout << "purity = " <<purity<< endl;
+                  mPurity->SetBinContent(bin,purity);
   }
+}
 
-  // aprotons
-  if (part == "aprot"){
-      fit->Constrain(1,0.93,1.0);
-      fit->Constrain(2,0.0,0.01);
-      fit->Constrain(3,0.01,0.07);
+}
+WriteHistos(mPurity);
+}
+
+
+void plotFitterNoMat(int bin,TH1F* hData_DCAxy, TH1F* hMCprim_DCAxy, TH1F* hMCsecW_DCAxy,TH1F* mPurity){
+
+    //hData_DCAxy->Draw();
+    Double_t par0, errpar0, par1, errpar1, par2, errpar2;
+    // yield of prim/secM/secW
+    Double_t yieldPrim, yieldSecM, yieldSecW;
+    Double_t weightPrim, weightSecM, weightSecW;
+    int binx_low  = 0;
+    int binx_high = 0;
+   TObjArray *mc = new TObjArray(2);        // MC histograms are put in this array
+    mc->Add(hMCprim_DCAxy);
+    mc->Add(hMCsecW_DCAxy);
+    mc->ls();
+
+    TFractionFitter* fit = new TFractionFitter(hData_DCAxy, mc); // initialise
+    // constrain fractions
+
+    // protons
+    if (part == "prot"){
+        fit->Constrain(1,0.93,1.0);
+        fit->Constrain(2,0.01,0.07);
+    }
+
+    // aprotons
+    if (part == "aprot"){
+        fit->Constrain(1,0.93,1.0);
+        //fit->Constrain(2,0.0,0.01);
+        fit->Constrain(2,0.01,0.07);
+    }
+
+    Int_t status = fit->Fit();               // perform the fit
+    cout << "fit status: " << status << endl;
+    if (status != 0){
+
+      continue;
+    }
+    if (status == 0) {                       // check on fit status
+        TH1F* result = (TH1F*) fit->GetPlot();
+        // obtain weights
+        fit->GetResult(0, par0, errpar0);
+      //  fit->GetResult(1, par1, errpar1);
+        fit->GetResult(1, par1, errpar1);
+
+        cout << "par0 = " << par0 << endl;
+
+        cout << "par1 = " << par1 << endl;
+
+        hData_DCAxy->SetLineColor(kBlack);
+        hData_DCAxy->SetMarkerColor(kBlack);
+        hData_DCAxy->SetMarkerStyle(kFullCircle);
+        hData_DCAxy->Draw("Ep");
+
+        result->SetLineColor(kBlue);
+        result->Draw("same");
+
+        weightPrim = par0*(hData_DCAxy->Integral())/(hMCprim_DCAxy->Integral());
+      //  weightSecM = par1*(hData_DCAxy->Integral())/(hMCsecM_DCAxy->Integral());
+        weightSecW = par1*(hData_DCAxy->Integral())/(hMCsecW_DCAxy->Integral());
+
+
+        hMCprim_DCAxy->Scale(weightPrim);
+
+        hMCsecW_DCAxy->Scale(weightSecW);
+
+        hMCsum = (TH1F*)hMCprim_DCAxy->Clone();
+        //hMCsum->Add(hMCsecM_DCAxy);
+        hMCsum->Add(hMCsecW_DCAxy);
+
+        hMCprim_DCAxy->SetLineColor(kRed);
+        hMCprim_DCAxy->SetMarkerColor(kRed);
+        hMCprim_DCAxy->SetMarkerStyle(kFullCircle);
+        hMCprim_DCAxy->Draw("same");
+
+
+        hMCsecW_DCAxy->SetLineColor(kMagenta);
+        hMCsecW_DCAxy->SetMarkerColor(kMagenta);
+        hMCsecW_DCAxy->SetMarkerStyle(kFullCircle);
+        hMCsecW_DCAxy->Draw("same");
+
+        hMCsum->SetLineColor(kBlue+1);
+        hMCsum->SetMarkerColor(kBlue+1);
+        hMCsum->SetMarkerStyle(kFullStar);
+        hMCsum->Draw("same");
+
+        //c1->Print(Form("DCAxyFit_%s_bin_%i.pdf",part,bin));
+        c1->Print(Form("DCAxyFit_%s_bin_%i.png",part,bin));
+
+        // extract purity
+        binx_low  = hData_DCAxy->FindBin(-0.1+0.0001);
+        binx_high = hData_DCAxy->FindBin(0.1-0.0001);
+
+        yieldPrim = hMCprim_DCAxy->Integral(binx_low,binx_high);
+        yieldSecW = hMCsecW_DCAxy->Integral(binx_low,binx_high);
+
+double purity =yieldPrim/(yieldPrim+yieldSecW);
+        cout << "purity = " <<purity<< endl;
+        mPurity->SetBinContent(bin,purity);
+
+    }
+
+
+
+}
+int count(TH1F* h){
+  int M = 0;
+  for(int z = 0;z<h->GetNbinsX();z++){
+    double ax = h->GetBinContent(z);
+    if(ax != 0){
+      M++;
+    }
   }
+  return M;
+}
 
-  Int_t status = fit->Fit();               // perform the fit
-  cout << "fit status: " << status << endl;
+void WriteHistos(TH1F* purity){
 
-  if (status == 0) {                       // check on fit status
-      TH1F* result = (TH1F*) fit->GetPlot();
-      // obtain weights
-      fit->GetResult(0, par0, errpar0);
-      fit->GetResult(1, par1, errpar1);
-      fit->GetResult(2, par2, errpar2);
+    TFile* fileout = new TFile(Form("%s_%s.root","Purity",part),"RECREATE");
+    purity->SetStats(kFALSE);
+    //count(purity);
+    purity->Draw("h");
+    purity->Write();
+    fileout->Close();
 
-      cout << "par0 = " << par0 << endl;
-      cout << "par1 = " << par1 << endl;
-      cout << "par2 = " << par2 << endl;
-
-      hData_DCAxy->SetLineColor(kBlack);
-      hData_DCAxy->SetMarkerColor(kBlack);
-      hData_DCAxy->SetMarkerStyle(kFullCircle);
-      hData_DCAxy->Draw("Ep");
-
-      result->SetLineColor(kBlue);
-      result->Draw("same");
-
-      weightPrim = par0*(hData_DCAxy->Integral())/(hMCprim_DCAxy->Integral());
-      weightSecM = par1*(hData_DCAxy->Integral())/(hMCsecM_DCAxy->Integral());
-      weightSecW = par2*(hData_DCAxy->Integral())/(hMCsecW_DCAxy->Integral());
-
-      hMCprim_DCAxy->Scale(weightPrim);
-      hMCsecM_DCAxy->Scale(weightSecM);
-      hMCsecW_DCAxy->Scale(weightSecW);
-
-      hMCsum = (TH1F*)hMCprim_DCAxy->Clone();
-      hMCsum->Add(hMCsecM_DCAxy);
-      hMCsum->Add(hMCsecW_DCAxy);
-
-      hMCprim_DCAxy->SetLineColor(kRed);
-      hMCprim_DCAxy->SetMarkerColor(kRed);
-      hMCprim_DCAxy->SetMarkerStyle(kFullCircle);
-      hMCprim_DCAxy->Draw("same");
-
-      hMCsecM_DCAxy->SetLineColor(kGreen);
-      hMCsecM_DCAxy->SetMarkerColor(kGreen);
-      hMCsecM_DCAxy->SetMarkerStyle(kFullCircle);
-      hMCsecM_DCAxy->Draw("same");
-
-      hMCsecW_DCAxy->SetLineColor(kMagenta);
-      hMCsecW_DCAxy->SetMarkerColor(kMagenta);
-      hMCsecW_DCAxy->SetMarkerStyle(kFullCircle);
-      hMCsecW_DCAxy->Draw("same");
-
-      hMCsum->SetLineColor(kBlue+1);
-      hMCsum->SetMarkerColor(kBlue+1);
-      hMCsum->SetMarkerStyle(kFullStar);
-      hMCsum->Draw("same");
-
-      c1->Print(Form("DCAxyFit_%s_bin_%i.png",part,bin));
-
-      // extract purity
-      binx_low  = hData_DCAxy->FindBin(-0.1+0.0001);
-      binx_high = hData_DCAxy->FindBin(0.1-0.0001);
-
-      yieldPrim = hMCprim_DCAxy->Integral(binx_low,binx_high);
-      yieldSecM = hMCsecM_DCAxy->Integral(binx_low,binx_high);
-      yieldSecW = hMCsecW_DCAxy->Integral(binx_low,binx_high);
-
-      cout << "purity = " << yieldPrim/(yieldPrim+yieldSecM+yieldSecW) << endl;
-
-  }
-*/
 }
