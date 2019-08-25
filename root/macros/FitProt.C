@@ -117,7 +117,7 @@ void Fiting(TH2F* hData_DCAxy_p ,TH2F* hMCprim_DCAxy_p,TH2F* hMCsecM_DCAxy_p,TH2
     hMCsecM_DCAxy->Rebin(rebinFactor);
     hMCsecW_DCAxy->Rebin(rebinFactor);
 // Fixing purity bins with no Fiitting
-if (part == "prot"){
+/*if (part == "prot"){
   if(bin == 33||bin == 37 || bin == 38 || bin == 39 || bin == 44){
     plotFitterNoMat(bin,hData_DCAxy,hMCprim_DCAxy,hMCsecW_DCAxy,mPurity);
     mIsEmpty = kTRUE;
@@ -132,11 +132,11 @@ if (part == "prot"){
     mIsEmpty = kFALSE;
   }
 }
+*/
 
-
-  if(!mIsEmpty){
-    if(countBins(hMCsecM_DCAxy) == 0){
-
+  //if(!mIsEmpty){
+    //if(countBins(hMCsecM_DCAxy) == 0){
+if(bin > 17){
       plotFitterNoMat(bin,hData_DCAxy,hMCprim_DCAxy,hMCsecW_DCAxy,mPurity);
     }else{
 
@@ -247,7 +247,7 @@ if(bin == 31){
                     mPurity->SetBinContent(bin,purity);
     }
   }
-}
+//}
   }
   WriteHistos(mPurity);
 }
