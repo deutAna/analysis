@@ -3,7 +3,7 @@ int bins_num[23]  = {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 
 int binlow  = 4;
 int binmid  = 7;
 //#include "Functions.C"
-//#include "..$/Secondary.C"
+#include "/home/ibrahim/Downloads/Secondary.C"
 TObjArray*  getHistograms();
 void MakePrimFracDeuteron(TString Name, TH1F *primary_fraction, TH2F *DCAData);
 void MakeDCAPlot(TString Name,TString PtRangeName, TH1F *ProjDCAData, TF1 *Signal, TF1 *Background, Int_t PtBin);
@@ -65,19 +65,23 @@ void plotting(TH2F* hData_DCAxy_p ,TH1F* hMCprim_DCAxy,TH2F* hMCsecM_DCAxy_p,TH1
        cout<<hData_DCAxy->GetNbinsX()<<endl;
        cout<<hMCsecM_DCAxy->GetNbinsX()<<endl;
        cout<<hMCprim_DCAxy->GetNbinsX()<<endl;
-Scaling(hData_DCAxy);
-Scaling(hMCsecM_DCAxy);
+      //Scaling(hData_DCAxy);
+      //Scaling(hMCsecM_DCAxy);
         // MC histograms are put in this array
         TObjArray *mc = new TObjArray(2);
         mc->Add(hMCprim_DCAxy);
         mc->Add(hMCsecM_DCAxy);
         mc->ls();
+        hData_DCAxy->Draw();
+        c1->Print(Form("data%s_bin_%i.png","Deuteron",bin));
 
-
+/*
         TFractionFitter* fit = new TFractionFitter(hData_DCAxy, mc);
 
-        fit->Constrain(0,-0.05,0.05);
-        fit->Constrain(1,-0.01,0.01);
+        //fit->Constrain(0,-0.05,0.05);
+        //fit->Constrain(1,-0.01,0.01);
+        fit->Constrain(0,0.5,1.0);
+        fit->Constrain(1,0.0001,0.5);
 
 
         Int_t status = fit->Fit();               // perform the fit
@@ -147,7 +151,7 @@ Scaling(hMCsecM_DCAxy);
                             mPurity->SetBinContent(bin,purity);
             }
 
-
+*/
   }
 
 
@@ -155,7 +159,7 @@ Scaling(hMCsecM_DCAxy);
 }
 
 void Scaling(TH1F* hist){
-  hist->Scale(1.0 / hist->Integral(),"width");
+  hist->Scale(hist->Integral(),"width");
 }
 void count(TH1F* h){
   for(int i = 0;i<h->GetNbinsX();i++){
