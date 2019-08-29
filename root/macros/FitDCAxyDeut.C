@@ -2,47 +2,78 @@
 int bins_num[23]  = {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22, 24, 26, 28, 30, 35, 40};
 int binlow  = 4;
 int binmid  = 7;
+const int* fDCABinning_arraySize = 27;
+
+Double_t arryBins[fDCABinning_arraySize] = {-1,-0.9,-0.8,-0.7,-0.6,-0.5,-0.4,-0.3,-0.2,-0.1,-0.025,-0.05,-0.075,0.0,0.025,0.05,0.075,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0}; // should be defined more ...
+
 //#include "Functions.C"
-#include "/home/ibrahim/Downloads/Secondary.C"
+#include "Secondary.C"
 TObjArray*  getHistograms();
 void MakePrimFracDeuteron(TString Name, TH1F *primary_fraction, TH2F *DCAData);
-void MakeDCAPlot(TString Name,TString PtRangeName, TH1F *ProjDCAData, TF1 *Signal, TF1 *Background, Int_t PtBin);
-void DCAFit(TH1F* histo,Int_t PtBin,Int_t ParticleType,TF1 *Signal,TF1 *BackGr,Double_t *ValueErrorArray);
-void plotting(TH2F* hData_DCAxy_p ,TH1F* hMCprim_DCAxy,TH2F* hMCsecM_DCAxy_p,TH1F* mPurity);
+void CalculatePrimFrac(TH1F *primary_fraction,TH1F *Primary_DCAxy,TH1F *Secondary_DCAxy,Int_t PtBin);
+void MakeDCAPlot(TString Name,TString PtRangeName,TString PurityName, TH1F *ProjDCAData, TH1F *Primary_DCAxy, TH1F *Secondary_DCAxy, TH1F *result,Int_t PtBin);
+void plotting(TH2F* hData_DCAxy_p ,TH2F* prihTOFm2_DCAxy_p,TH2F* hMCsecM_DCAxy_p,TH1F* mPurity  );
 void LabelDCAHisto(TH1F *Histo, TString Title, EColor color);
 void Scaling(TH1F* hist);
+
+
 void FitDCAxyDeut(){
 
 
   TObjArray* mHistograms = getHistograms();
 
   TH3F* hTOFm2_DCAxy_p = mHistograms->At(0);
-  TH1F* hMC_prim = mHistograms->At(1);
+  TH3F* prihTOFm2_DCAxy_p = mHistograms->At(1);
   TH2F* hMC_Mat = mHistograms->At(2);
-  TH2F* hMC_DCAxy_prim = mHistograms->At(3);
 
-hMC_prim->Rebin(4);
-//Scaling(hMC_prim);
+
+
         TH1F* mPurity = new TH1F("hPurity",Form("Purity %s","Deuteron"),45,0,4.5);
         mPurity->GetXaxis()->SetTitle("#it{p}, GeV/#it{c}");
         mPurity->GetYaxis()->SetTitle("purity");
         mPurity->GetYaxis()->SetRange(0,100);
 
         TH2F* hData_DCAxy_p = (TH2F*)hTOFm2_DCAxy_p->Project3D("zxo")->Clone("hData_DCAxy_p");
-      //MakePrimFracDeuteron("Deuteron",hMC_prim,hData_DCAxy_p);
-      plotting(hData_DCAxy_p,hMC_prim,hMC_Mat,mPurity);
 
-      //MakePrimFracDeuteron("Deuteron",hMC_prim,hData_DCAxy_p,hMC_DCAxy_prim,hMC_Mat);
-      cout<<hData_DCAxy_p->GetNbinsY()<<endl;
-      cout<<hMC_Mat->GetNbinsY()<<endl;
+        TH2F* hPrim_DCAxy_p = (TH2F*)prihTOFm2_DCAxy_p->Project3D("zxo")->Clone("hPrim_DCAxy_p");
+
+   plotting(hData_DCAxy_p,hPrim_DCAxy_p,hMC_Mat,mPurity);
+
+      cout<<hData_DCAxy_p->GetNbinsY()<<endl;//200
+      cout<<hPrim_DCAxy_p->GetNbinsY()<<endl;//500
+      cout<<hMC_Mat->GetNbinsY()<<endl;//1000
+
 
 
 
 }
+void WriteHistos(TH1F* purity){
+
+    TFile* fileout = new TFile(Form("%s_%s.root","Purity","Deutron"),"RECREATE");
+    purity->SetStats(kFALSE);
+    purity->Draw("h");
+    purity->Write();
+    fileout->Close();
+
+}
+
+void plotting(TH2F* hData_DCAxy_p ,TH2F* prihTOFm2_DCAxy_p,TH2F* hMCsecM_DCAxy_p,TH1F* mPurity){
 
 
-void plotting(TH2F* hData_DCAxy_p ,TH1F* hMCprim_DCAxy,TH2F* hMCsecM_DCAxy_p,TH1F* mPurity){
-  for (int bin= 6;bin < 24 ; bin++){
+  TH1F *hData_DCAxy[45];
+  TH1F *Primary_DCAxy[45];
+  TH1F *Secondary_DCAxy[45];
+  TH1F *results[45];
+  TString PtRangeName[45];
+  TString PurityDCA;
+
+
+
+  for (int bin= 6;bin <24 ; bin++){
+
+
+    mPurity->SetBinContent(bin,1);
+    mPurity->SetBinError(bin,0);
 
         Double_t par0, errpar0, par1, errpar1, par2, errpar2;
         // yield of prim/secM/secW
@@ -54,32 +85,49 @@ void plotting(TH2F* hData_DCAxy_p ,TH1F* hMCprim_DCAxy,TH2F* hMCsecM_DCAxy_p,TH1
         // canvas and QA dir
         TCanvas* c1 = new TCanvas("c1","c1");
 
+        // projection .. rebinning ... scaling
+        hData_DCAxy[bin] = (TH1F*) hData_DCAxy_p->ProjectionY("_py",bins_num[bin-6]+1,bins_num[bin-5],"oe")->Clone(Form("hData_DCAxy_bin_%i",bin));
+        hData_DCAxy[bin] = (TH1F*) hData_DCAxy[bin]->Rebin(26,Form("hData_%d",bin),arryBins); // value of rebin ... first getNbinY  to see ......... check the cout first
+        hData_DCAxy[bin]->Scale(0.025, "width");
+       // finding intergral range and integrate
+       Double_t BinlowData = hData_DCAxy[bin]->FindBin(-0.5);
+       Double_t BinupData = hData_DCAxy[bin]->FindBin(0.5);
+       Double_t Scaling_Intgral = (hData_DCAxy[bin]->Integral(BinlowData,BinupData));
 
-        // data
-        hData_DCAxy = (TH1F*) hData_DCAxy_p->ProjectionY("_py",bins_num[bin-6]+1,bins_num[bin-5],"oe")->Clone(Form("hData_DCAxy_ptbin_%i",bin));
-        hMCsecM_DCAxy = (TH1F*) hMCsecM_DCAxy_p->ProjectionY("_py",bins_num[bin-6]+1,bins_num[bin-5],"oe")->Clone(Form("hMCsecM_DCAxy_ptbin_%i",bin));
-        hData_DCAxy->Rebin(2);
-        hMCsecM_DCAxy->Rebin(2);
+        Primary_DCAxy[bin] = (TH1F*) prihTOFm2_DCAxy_p->ProjectionY("_py",bins_num[bin-6]+1,bins_num[bin-5],"oe")->Clone(Form("prihTOFm2_DCAxy_p_bin_%i",bin));
+        Primary_DCAxy[bin] = (TH1F*) Primary_DCAxy[bin]->Rebin(26,"hPrim",arryBins);  // check the cout first
+        Primary_DCAxy[bin]->Scale(0.025,"width");
+        Primary_DCAxy[bin]->Scale(Scaling_Intgral/(Primary_DCAxy[bin]->Integral(BinlowData,BinupData)));
 
 
-       cout<<hData_DCAxy->GetNbinsX()<<endl;
-       cout<<hMCsecM_DCAxy->GetNbinsX()<<endl;
-       cout<<hMCprim_DCAxy->GetNbinsX()<<endl;
-      //Scaling(hData_DCAxy);
-      //Scaling(hMCsecM_DCAxy);
+        Secondary_DCAxy[bin] = (TH1F*) hMCsecM_DCAxy_p->ProjectionY("_py",bins_num[bin-6]+1,bins_num[bin-5],"oe")->Clone(Form("hMCsecM_DCAxy_bin_%i",bin));
+        Secondary_DCAxy[bin] = (TH1F*) Secondary_DCAxy[bin]->Rebin(26,"hMat",arryBins);    // check the cout first
+        Secondary_DCAxy[bin]->Scale(0.025,"width");
+        Secondary_DCAxy[bin]->Scale(Scaling_Intgral/(Secondary_DCAxy[bin]->Integral(BinlowData,BinupData)));
+
+
+
+
+// to check the binns after rebinning and after setting the x-axis range
+       cout<<hData_DCAxy[bin]->GetNbinsX()<<endl;
+       cout<<Primary_DCAxy[bin]->GetNbinsX()<<endl;
+       cout<<Secondary_DCAxy[bin]->GetNbinsX()<<endl;
+
+
+
+
         // MC histograms are put in this array
-        TObjArray *mc = new TObjArray(2);
-        mc->Add(hMCprim_DCAxy);
-        mc->Add(hMCsecM_DCAxy);
+        TObjArray* mc = new TObjArray(2);
+        mc->Add(Primary_DCAxy[bin]);
+        mc->Add( Secondary_DCAxy[bin]);
         mc->ls();
-        hData_DCAxy->Draw();
-        c1->Print(Form("data%s_bin_%i.png","Deuteron",bin));
 
-/*
-        TFractionFitter* fit = new TFractionFitter(hData_DCAxy, mc);
 
-        //fit->Constrain(0,-0.05,0.05);
-        //fit->Constrain(1,-0.01,0.01);
+
+
+        TFractionFitter* fit = new TFractionFitter(hData_DCAxy[bin], mc);
+
+
         fit->Constrain(0,0.5,1.0);
         fit->Constrain(1,0.0001,0.5);
 
@@ -87,6 +135,23 @@ void plotting(TH2F* hData_DCAxy_p ,TH1F* hMCprim_DCAxy,TH2F* hMCsecM_DCAxy_p,TH1
         Int_t status = fit->Fit();               // perform the fit
         cout << "fit status: " << status << endl;
 
+
+        results[bin] = 0;
+        if (status == 0) {
+            // obtain weights:
+            fit->GetResult(0, par0, errpar0);
+            fit->GetResult(1, par1, errpar1);
+
+            Primary_DCAxy[bin]->Scale(par0);
+            Secondary_DCAxy[bin]->Scale(par1);
+            results[bin] = (TH1F*)fit->GetPlot();
+            results[bin]->SetTitle(Form("Fit result %d",bin));
+            CalculatePrimFrac(mPurity,Primary_DCAxy[bin],Secondary_DCAxy[bin],bin);
+            PurityDCA = Form("Purity: %1.3f",mPurity->GetBinContent(bin));
+            MakeDCAPlot("Deuteron","X",PurityDCA,hData_DCAxy[bin],Primary_DCAxy[bin],Secondary_DCAxy[bin],results[bin],bin);
+        }
+
+/*
 
                 if (status == 0) {                       // check on fit status
                     TH1F* result = (TH1F*) fit->GetPlot();
@@ -99,35 +164,35 @@ void plotting(TH2F* hData_DCAxy_p ,TH1F* hMCprim_DCAxy,TH2F* hMCsecM_DCAxy_p,TH1
                     cout << "par1 = " << par1 << endl;
                     //cout << "par2 = " << par2 << endl;
 
-                    hData_DCAxy->SetLineColor(kBlack);
-                    hData_DCAxy->SetMarkerColor(kBlack);
-                    hData_DCAxy->SetMarkerStyle(kFullCircle);
-                    hData_DCAxy->Draw("Ep");
+                    hData_DCAxy[bin]->SetLineColor(kBlack);
+                    hData_DCAxy[bin]->SetMarkerColor(kBlack);
+                    hData_DCAxy[bin]->SetMarkerStyle(kFullCircle);
+                    hData_DCAxy[bin]->Draw("Ep");
 
                     result->SetLineColor(kBlue);
                     result->Draw("same");
 
-                    weightPrim = par0*(hData_DCAxy->Integral())/(hMCprim_DCAxy->Integral());
-                    weightSecM = par1*(hData_DCAxy->Integral())/(hMCsecM_DCAxy->Integral());
+                    weightPrim = par0*(hData_DCAxy[bin]->Integral())/(Primary_DCAxy[bin]->Integral());
+                    weightSecM = par1*(hData_DCAxy[bin]->Integral())/(Secondary_DCAxy[bin]->Integral());
 
 
-                    hMCprim_DCAxy->Scale(weightPrim);
-                    hMCsecM_DCAxy->Scale(weightSecM);
+                    Primary_DCAxy[bin]->Scale(weightPrim);
+                    Secondary_DCAxy[bin]->Scale(weightSecM);
 
 
-                    hMCsum = (TH1F*)hMCprim_DCAxy->Clone();
-                    hMCsum->Add(hMCsecM_DCAxy);
+                    hMCsum = (TH1F*)Secondary_DCAxy[bin]->Clone();
+                    hMCsum->Add(Secondary_DCAxy[bin]);
 
 
-                    hMCprim_DCAxy->SetLineColor(kRed);
-                    hMCprim_DCAxy->SetMarkerColor(kRed);
-                    hMCprim_DCAxy->SetMarkerStyle(kFullCircle);
-                    hMCprim_DCAxy->Draw("same");
+                    Primary_DCAxy[bin]->SetLineColor(kRed);
+                    Primary_DCAxy[bin]->SetMarkerColor(kRed);
+                    Primary_DCAxy[bin]->SetMarkerStyle(kFullCircle);
+                    Primary_DCAxy[bin]->Draw("same");
 
-                    hMCsecM_DCAxy->SetLineColor(kGreen);
-                    hMCsecM_DCAxy->SetMarkerColor(kGreen);
-                    hMCsecM_DCAxy->SetMarkerStyle(kFullCircle);
-                    hMCsecM_DCAxy->Draw("same");
+                    Secondary_DCAxy[bin]->SetLineColor(kGreen);
+                    Secondary_DCAxy[bin]->SetMarkerColor(kGreen);
+                    Secondary_DCAxy[bin]->SetMarkerStyle(kFullCircle);
+                    Secondary_DCAxy[bin]->Draw("same");
 
 
 
@@ -139,67 +204,113 @@ void plotting(TH2F* hData_DCAxy_p ,TH1F* hMCprim_DCAxy,TH2F* hMCsecM_DCAxy_p,TH1
                     c1->Print(Form("DCAxyFit_%s_bin_%i.png","Deuteron",bin));
 
                     // extract purity
-                    binx_low  = hData_DCAxy->FindBin(-0.1+0.0001);
-                    binx_high = hData_DCAxy->FindBin(0.1-0.0001);
+                    binx_low  = hData_DCAxy[bin]->FindBin(-0.1);
+                    binx_high = hData_DCAxy[bin]->FindBin(0.1);
 
-                    yieldPrim = hMCprim_DCAxy->Integral(binx_low,binx_high);
-                    yieldSecM = hMCsecM_DCAxy->Integral(binx_low,binx_high);
+                    yieldPrim = Primary_DCAxy[bin]->Integral(binx_low,binx_high);
+                    yieldSecM = Secondary_DCAxy[bin]->Integral(binx_low,binx_high);
 
 
                     double purity =yieldPrim/(yieldPrim+yieldSecW);
                             cout << "purity = " <<purity<< endl;
                             mPurity->SetBinContent(bin,purity);
             }
-
 */
   }
 
+ WriteHistos(mPurity);
+
+}
+void MakeDCAPlot(TString Name,TString PtRangeName,TString PurityName, TH1F *ProjDCAData, TH1F *Primary_DCAxy, TH1F *Secondary_DCAxy, TH1F *result,Int_t PtBin){
 
 
+    LabelDCAHisto(ProjDCAData, Form("Data %s",Name.Data()) ,kBlack);
+    LabelDCAHisto(Primary_DCAxy, "Primary",kRed);
+    LabelDCAHisto(Secondary_DCAxy, "Material",kGreen);
+
+    TCanvas *DCAPlot = new TCanvas("DCAPlot","DCAPlot",0,0,800,600);
+    TString pdfDCAName = Form("%s/DCAFit/%s_DCAFit_Bin_%d.pdf",Name.Data(),Name.Data(),PtBin);
+    TLatex PtBinRange;
+    gPad->SetLogy();
+
+    //gStyle->SetOptStat("nic");
+    gStyle->SetOptFit(1111);
+    gStyle->SetOptTitle(0);
+    gStyle->SetStatW(0.2);
+    gStyle->SetStatH(0.1);
+
+    ProjDCAData->Draw("Ep");
+    Secondary_DCAxy->DrawCopy("same");
+    Primary_DCAxy->DrawCopy("same");
+    if(result){
+        result->SetLineColor(kBlue);
+        result->SetLineWidth(2);
+        result->DrawCopy("same");
+    }
+    gPad->BuildLegend(0.35,0.9,0.15,0.7);
+    PtBinRange.SetNDC(kTRUE);
+    PtBinRange.SetTextSize(0.03);
+    //PtBinRange.DrawLatex(.15,.62,PtRangeName);
+    //PtBinRange.DrawLatex(.15,.55,PurityName);
+
+    //DCAPlot->Print(pdfDCAName);
+      DCAPlot->Print(Form("DCAxyFit_%s_bin_%i.png","Deuteron",PtBin));
+    delete DCAPlot;
+    return;
+}
+
+void CalculatePrimFrac(TH1F *primary_fraction,TH1F *Primary_DCAxy,TH1F *Secondary_DCAxy,Int_t PtBin){
+
+    //Find DCA integration range
+    Double_t Binlow = Primary_DCAxy->FindBin(-1);
+    Double_t Binup = Primary_DCAxy->FindBin(1);
+
+    //Calculate Integral and respective Error
+    Double_t ErrorPrim;
+    Double_t ErrorSec;
+    Double_t ErrorMat;
+    Double_t Integral_primary = Primary_DCAxy->IntegralAndError(Binlow,Binup,ErrorPrim);
+    Double_t Integral_secondary = Secondary_DCAxy->IntegralAndError(Binlow,Binup,ErrorSec);
+    Double_t RelError = 0;
+    if(Integral_secondary>0)RelError = TMath::Sqrt( (ErrorPrim/Integral_primary)*(ErrorPrim/Integral_primary) + (ErrorPrim/(Integral_primary+Integral_secondary))*(ErrorPrim/(Integral_primary+Integral_secondary)) );
+
+    //Calculate the primary fraction with error
+    Double_t Val_PrimFraction = 1;
+    if(Integral_secondary>0)Val_PrimFraction = Integral_primary/(Integral_primary+Integral_secondary);
+    primary_fraction->SetBinContent(PtBin,Val_PrimFraction);
+    primary_fraction->SetBinError(PtBin,Val_PrimFraction*RelError);
+    return;
 }
 
 void Scaling(TH1F* hist){
   hist->Scale(hist->Integral(),"width");
 }
-void count(TH1F* h){
-  for(int i = 0;i<h->GetNbinsX();i++){
-
-    double d = h->GetBinContent(i);
-    if(d != 0){
-
-      cout<<"************ At I : "<<i<<"  ***** Bin Value is : "<<d<<" ********"<<endl;
-    }
-
-  }
-}
-
 
 
 TObjArray* getHistograms(){
 
   TH3F* hTOFm2_DCAxy_p;
-  TH1F* hMC_prim;
+  TH3F* prihTOFm2_DCAxy_p;
   TH2F* hMC_Mat;
-  TH2F* hMC_DCAxy_prim;
-  TObjArray *histo = new TObjArray(4);
+
+  TObjArray *histo = new TObjArray(3);
   TDirectoryFile* dir;
-  TList* main_list;
-  TList* subList;
+
   TList* mainListMC;
   TList* subListMC;
 
   TFile* dataFile = TFile::Open("High_Mult_TOF_PID_LHC16_k_l_o_p.root");
+
   hTOFm2_DCAxy_p = (TH3F*) dataFile->Get("Output_highMult_TOFpid")->FindObject("Protons")->FindObject("fHistTOFmass2_DCAxy_p")->Clone("hTOFm2_DCAxy_p");
   hTOFm2_DCAxy_p->Sumw2();
+
   histo->Add(hTOFm2_DCAxy_p);
 
-  hMC_prim = (TH1F*) dataFile->Get("Output_highMult_TOFpid")->FindObject("ADeuterons")->FindObject("fHistDCAxy")->Clone("hMC_prim");
-  histo->Add(hMC_prim);
+  prihTOFm2_DCAxy_p = (TH3F*) dataFile->Get("Output_highMult_TOFpid")->FindObject("ADeuterons")->FindObject("fHistTOFmass2_DCAxy_p")->Clone("prihTOFm2_DCAxy_p");
+  prihTOFm2_DCAxy_p->Sumw2();
+  //prihTOFm2_DCAxy_p->RebinY(5);
+  histo->Add(prihTOFm2_DCAxy_p);
 
-  /*TFile* dataFile = TFile::Open("High_Mult_TOF_PID_LHC16_k_l_o_p.root");
-  dataFile->GetObject("Output_HighMult_TOFpid",main_list);
-  subList = (TList*) main_list->FindObject("Protons");
-  hTOFm2_DCAxy_p = (TH3F*) subList->FindObject(fHistTOFmass2_DCAxy_p);*/
 
 
   TFile* mcFile = TFile::Open("LHC18f3_cent_2_MC_p-pb.root");
@@ -210,91 +321,20 @@ TObjArray* getHistograms(){
   hMC_Mat->RebinY(5);
   histo->Add(hMC_Mat);
 
-  hMC_DCAxy_prim = (TH2F*) subListMC->FindObject("DCAPtBinningPri");
-  hMC_DCAxy_prim->RebinY(5);
-  histo->Add(hMC_DCAxy_prim);
+
 
 
   return histo;
 }
 
+void count(TH1F* h){
+  for(int i = 0;i<h->GetNbinsX();i++){
 
-Double_t background(Double_t *x, Double_t *par) {
-    Float_t xval = x[0];
-    Float_t par0 = par[0];
-    Float_t par1 = par[1];
-    Float_t par2 = par[2];
-    Float_t par3 = par[3];
-    return par0 + par1*xval + par2*TMath::Exp(xval*par3);
-}
+    double d = h->GetBinContent(i);
+    if(d != 0){
 
-Double_t backGrProton(Double_t *x, Double_t *par) {
-    Float_t xval = x[0];
-    Float_t par0 = par[0];
-    Float_t par1 = par[1];
-    Float_t par2 = par[2];
-    Float_t par3 = par[3];
-    Float_t par4 = par[4];
-    Float_t par5 = par[5];
-    Float_t par6 = par[6];
-    if(xval <= (par4 + par5*par6)){
-        return TMath::Exp(par0+par1*xval+par2*xval*xval) + par3*TMath::Gaus(xval, par4, par5);
-    }else{
-        return TMath::Exp(par0+par1*xval+par2*xval*xval) + par3*TMath::Exp(-(xval-par4-par6*par5*0.5)*par6/par5);
+      cout<<"************ At I : "<<i<<"  ***** Bin Value is : "<<d<<" ********"<<endl;
     }
 
-}
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-Double_t gaussian(Double_t *x, Double_t *par) {
-
-    Float_t xval = x[0];
-    Float_t par0 = par[0];
-    Float_t par1 = par[1];
-    Float_t par2 = par[2];
-    return par0*TMath::Gaus(xval,par1,par2);
-}
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-Double_t gaussianSignal(Double_t *x, Double_t *par) {
-
-    Float_t xval = x[0];
-    Float_t par0 = par[0];
-    Float_t par1 = par[1];
-    Float_t par2 = par[2];
-    Float_t par3 = par[3];
-    if(xval < par1+par3*par2){
-        return par0*1/(TMath::Sqrt(0.5*TMath::Pi())*(par2+par2*TMath::Erf(par3/TMath::Sqrt(2)))+par2/par3*TMath::Exp(-par3*par3/2))*TMath::Exp(-(xval-par1)*(xval-par1)/2/par2/par2);
-    }else{
-        return par0*1/(TMath::Sqrt(0.5*TMath::Pi())*(par2+par2*TMath::Erf(par3/TMath::Sqrt(2)))+par2/par3*TMath::Exp(-par3*par3/2))*TMath::Exp(-(xval-par1-par3*par2*0.5)*par3/par2);
-    }
-}
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
-Double_t MassFitFunction(Double_t *x, Double_t *par) {
-    return gaussianSignal(x,par) + background(x,&par[4]);
-}
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-Double_t MassFitFunctionProton(Double_t *x, Double_t *par) {
-    return gaussianSignal(x,par) + background(x,&par[4]);
-}
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
-Double_t DCAGauss(Double_t *x, Double_t *par) {
-    return gaussian(x,par) + gaussian(x,&par[3]);
-}
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-Double_t DCAQuadraticFunc(Double_t *x, Double_t *par){
-    return par[0]*x[0]*x[0] + par[1]*x[0] + par[2];
-}
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-Double_t DCAFitFunction(Double_t *x, Double_t *par){
-    return DCAQuadraticFunc(x,par) + DCAGauss(x,&par[3]);
+  }
 }
