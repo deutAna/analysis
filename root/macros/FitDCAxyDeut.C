@@ -1,5 +1,5 @@
 
-int bins_num[23]  = {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22, 24, 26, 28, 30, 35, 40};
+//int bins_num[23]  = {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22, 24, 26, 28, 30, 35, 40};
 int binlow  = 4;
 int binmid  = 7;
 const int* fDCABinning_arraySize = 27;
@@ -69,7 +69,7 @@ void plotting(TH2F* hData_DCAxy_p ,TH2F* prihTOFm2_DCAxy_p,TH2F* hMCsecM_DCAxy_p
 
 
 
-  for (int bin= 6;bin <24 ; bin++){
+  for (int bin= 6;bin <41 ; bin++){
 
 
     mPurity->SetBinContent(bin,1);
@@ -86,7 +86,8 @@ void plotting(TH2F* hData_DCAxy_p ,TH2F* prihTOFm2_DCAxy_p,TH2F* hMCsecM_DCAxy_p
         TCanvas* c1 = new TCanvas("c1","c1");
 
         // projection .. rebinning ... scaling
-        hData_DCAxy[bin] = (TH1F*) hData_DCAxy_p->ProjectionY("_py",bins_num[bin-6]+1,bins_num[bin-5],"oe")->Clone(Form("hData_DCAxy_bin_%i",bin));
+        //hData_DCAxy[bin] = (TH1F*) hData_DCAxy_p->ProjectionY("_py",bins_num[bin-6]+1,bins_num[bin-5],"oe")->Clone(Form("hData_DCAxy_bin_%i",bin));
+        hData_DCAxy[bin] = (TH1F*)(hData_DCAxy_p->ProjectionY("hData",bin,bin,"e"));
         hData_DCAxy[bin] = (TH1F*) hData_DCAxy[bin]->Rebin(26,Form("hData_%d",bin),arryBins); // value of rebin ... first getNbinY  to see ......... check the cout first
         hData_DCAxy[bin]->Scale(0.025, "width");
        // finding intergral range and integrate
@@ -94,13 +95,15 @@ void plotting(TH2F* hData_DCAxy_p ,TH2F* prihTOFm2_DCAxy_p,TH2F* hMCsecM_DCAxy_p
        Double_t BinupData = hData_DCAxy[bin]->FindBin(0.5);
        Double_t Scaling_Intgral = (hData_DCAxy[bin]->Integral(BinlowData,BinupData));
 
-        Primary_DCAxy[bin] = (TH1F*) prihTOFm2_DCAxy_p->ProjectionY("_py",bins_num[bin-6]+1,bins_num[bin-5],"oe")->Clone(Form("prihTOFm2_DCAxy_p_bin_%i",bin));
+        //Primary_DCAxy[bin] = (TH1F*) prihTOFm2_DCAxy_p->ProjectionY("_py",bins_num[bin-6]+1,bins_num[bin-5],"oe")->Clone(Form("prihTOFm2_DCAxy_p_bin_%i",bin));
+        Primary_DCAxy[bin] = (TH1F*) prihTOFm2_DCAxy_p->ProjectionY("hPrim",bin,bin,"e"));
         Primary_DCAxy[bin] = (TH1F*) Primary_DCAxy[bin]->Rebin(26,"hPrim",arryBins);  // check the cout first
         Primary_DCAxy[bin]->Scale(0.025,"width");
         Primary_DCAxy[bin]->Scale(Scaling_Intgral/(Primary_DCAxy[bin]->Integral(BinlowData,BinupData)));
 
 
-        Secondary_DCAxy[bin] = (TH1F*) hMCsecM_DCAxy_p->ProjectionY("_py",bins_num[bin-6]+1,bins_num[bin-5],"oe")->Clone(Form("hMCsecM_DCAxy_bin_%i",bin));
+      //  Secondary_DCAxy[bin] = (TH1F*) hMCsecM_DCAxy_p->ProjectionY("_py",bins_num[bin-6]+1,bins_num[bin-5],"oe")->Clone(Form("hMCsecM_DCAxy_bin_%i",bin));
+        Secondary_DCAxy[bin] = (TH1F*) hMCsecM_DCAxy_p->ProjectionY("hPrim",bin,bin,"e"));
         Secondary_DCAxy[bin] = (TH1F*) Secondary_DCAxy[bin]->Rebin(26,"hMat",arryBins);    // check the cout first
         Secondary_DCAxy[bin]->Scale(0.025,"width");
         Secondary_DCAxy[bin]->Scale(Scaling_Intgral/(Secondary_DCAxy[bin]->Integral(BinlowData,BinupData)));
@@ -132,9 +135,11 @@ void plotting(TH2F* hData_DCAxy_p ,TH2F* prihTOFm2_DCAxy_p,TH2F* hMCsecM_DCAxy_p
         fit->Constrain(1,0.0001,0.5);
 
 
-        Int_t status = fit->Fit();               // perform the fit
-        cout << "fit status: " << status << endl;
-
+        //Int_t status = fit->Fit();               // perform the fit
+        //cout << "fit status: " << status << endl;
+        fit->SetRangeX(hData_DCAxy[bin]->FindBin(-1.0),hData_DCAxy[bin]->FindBin(1.0));
+        Int_t status = -1;
+        if(bin<15){ status = fit->Fit(); }
 
         results[bin] = 0;
         if (status == 0) {
